@@ -64,6 +64,8 @@ Open the application at:
 
 <http://127.0.0.1:8080>
 
+For Render, deploy the repository as one Python Web Service. The backend serves the frontend and API from the same URL.
+
 Backend health check:
 
 <http://127.0.0.1:5000/api/health>

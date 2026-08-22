@@ -2,7 +2,8 @@
 YouTube AI Summarizer - Flask Backend Application Core (Full Integration)
 """
 
-from flask import Flask, request, jsonify
+import os
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from config import Config
 
@@ -16,7 +17,8 @@ from services.db_service import (
 )
 
 def create_app():
-    app = Flask(__name__)
+    frontend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'frontend'))
+    app = Flask(__name__, static_folder=frontend_dir, static_url_path='')
     app.config.from_object(Config)
 
     # Enable Cross-Origin Resource Sharing (CORS) for frontend requests
@@ -31,11 +33,7 @@ def create_app():
     # ==========================================
     @app.route('/', methods=['GET'])
     def index():
-        return jsonify({
-            "status": "online",
-            "service": "YouTube AI Summarizer API",
-            "version": "1.0.0"
-        }), 200
+        return send_from_directory(frontend_dir, 'index.html')
 
     @app.route('/api/health', methods=['GET'])
     def health_check():
