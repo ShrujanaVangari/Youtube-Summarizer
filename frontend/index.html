@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube AI Summarizer | Instant Video Insights</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="app-wrapper">
+        <!-- Navigation Header -->
+        <header class="navbar">
+            <div class="logo">
+                <i class="fa-brands fa-youtube logo-icon"></i>
+                <span class="logo-text">YouTube <span class="accent-text">AI Summarizer</span></span>
+            </div>
+            <div class="header-actions">
+                <button id="toggleHistoryBtn" class="btn btn-ghost">
+                    <i class="fa-solid fa-history"></i> History <span id="historyCountBadge" class="badge">0</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Layout Container -->
+        <div class="main-container">
+            <!-- Primary Workspace -->
+            <main class="content-area">
+                <!-- Hero Input Section -->
+                <section class="hero-card">
+                    <div class="hero-header">
+                        <h1>Transform YouTube Videos into <span class="gradient-text">Instant AI Summaries</span></h1>
+                        <p>Extract concise executive summaries and key points in your preferred language.</p>
+                    </div>
+
+                    <!-- URL Submission Form -->
+                    <form id="summarizeForm" class="url-form">
+                        <div class="input-group">
+                            <i class="fa-solid fa-link input-icon"></i>
+                            <input type="url" id="youtubeUrlInput"
+                                placeholder="Paste YouTube URL here (e.g., https://www.youtube.com/watch?v=...)"
+                                required>
+                            <button type="button" id="clearInputBtn" class="btn-clear" style="display: none;">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+
+                        <!-- Summary Length Selector -->
+                        <div class="language-selector-wrapper">
+                            <span class="lang-label"><i class="fa-solid fa-ruler-horizontal"></i> Summary Length:</span>
+                            <div class="lang-options">
+                                <button type="button" class="lang-btn active" data-length="short">
+                                    <i class="fa-solid fa-compress"></i> Short
+                                </button>
+                                <button type="button" class="lang-btn" data-length="medium">
+                                    <i class="fa-solid fa-align-center"></i> Medium
+                                </button>
+                                <button type="button" class="lang-btn" data-length="detailed">
+                                    <i class="fa-solid fa-expand"></i> Detailed
+                                </button>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="submitBtn" class="btn btn-primary">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Summarize
+                        </button>
+                    </form>
+
+                    <div id="errorAlert" class="alert alert-danger" style="display: none;">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span id="errorMessage">Please enter a valid YouTube URL.</span>
+                    </div>
+                </section>
+
+                <!-- Loading State Indicator -->
+                <section id="loadingState" class="card loading-card" style="display: none;">
+                    <div class="spinner-container">
+                        <div class="gradient-spinner"></div>
+                    </div>
+                    <h3 id="loadingTitle">Processing Video...</h3>
+                    <div class="progress-steps">
+                        <div class="step-item active" id="step1">
+                            <i class="fa-solid fa-circle-check"></i> Extracting YouTube Transcript
+                        </div>
+                        <div class="step-item" id="step2">
+                            <i class="fa-solid fa-circle-check"></i> Generating Brief Summary with Gemini AI
+                        </div>
+                        <div class="step-item" id="step3">
+                            <i class="fa-solid fa-circle-check"></i> Saving to Neon PostgreSQL DB
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Summary Result Display -->
+                <section id="resultState" class="result-container" style="display: none;">
+                    <!-- Video Metadata Header -->
+                    <div class="card video-meta-card">
+                        <div class="video-preview-wrapper">
+                            <img id="videoThumbnail" src="" alt="Video Thumbnail" class="video-thumbnail">
+                            <a id="videoLink" href="#" target="_blank" class="play-overlay">
+                                <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Video
+                            </a>
+                        </div>
+                        <div class="video-info">
+                            <div class="meta-badges">
+                                <span class="badge badge-purple" id="videoSourceTag"><i
+                                        class="fa-brands fa-youtube"></i> YouTube</span>
+                                <span class="badge badge-cyan" id="currentLangBadge"><i class="fa-solid fa-align-center"></i>
+                                    Medium</span>
+                            </div>
+                            <h2 id="videoTitle" class="video-title">Video Title Placeholder</h2>
+                            <div class="meta-footer">
+                                <span id="summaryDate" class="meta-date"><i class="fa-regular fa-calendar"></i> Just
+                                    now</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI Executive Summary Card -->
+                    <div class="card summary-card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-align-left icon-accent"></i> Executive Summary</h3>
+                            <div class="card-actions">
+                                <button id="copySummaryBtn" class="btn btn-sm btn-ghost">
+                                    <i class="fa-regular fa-copy"></i> Copy Text
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <p id="summaryParagraph" class="summary-text">
+                                Your generated video summary will appear here.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Key Topics & Points Grid -->
+                    <div class="card keypoints-card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-list-check icon-accent"></i> Key Takeaways & Topics</h3>
+                        </div>
+                        <div class="card-body">
+                            <ul id="keyPointsList" class="keypoints-list">
+                                <!-- Dynamic bullet points inserted via JavaScript -->
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+            </main>
+
+            <!-- Right Sidebar: Saved Summaries History -->
+            <aside id="historySidebar" class="sidebar">
+                <div class="sidebar-header">
+                    <h3><i class="fa-solid fa-clock-rotate-left"></i> Saved Summaries</h3>
+                    <button id="refreshHistoryBtn" class="btn-icon" title="Refresh History">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                    </button>
+                </div>
+                <div class="sidebar-search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="searchHistoryInput" placeholder="Search saved summaries...">
+                </div>
+                <div id="historyList" class="history-list">
+                    <!-- Dynamic history items loaded from Neon DB -->
+                    <div class="empty-state">
+                        <i class="fa-solid fa-box-open"></i>
+                        <p>No saved summaries yet.</p>
+                        <span>Summarize a YouTube video to see it here!</span>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- JS script file -->
+    <script src="script.js"></script>
+</body>
+
+</html>

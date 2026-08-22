@@ -1,0 +1,7 @@
+# YouTube AI Summarizer - Backend Dependencies
+Flask>=3.0.0
+Flask-CORS>=4.0.0
+python-dotenv>=1.0.0
+youtube-transcript-api>=0.6.0
+google-generativeai>=0.4.0
+psycopg2-binary>=2.9.0
