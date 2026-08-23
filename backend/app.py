@@ -80,10 +80,15 @@ def create_app():
         # Step 1: Extract YouTube Transcript
         transcript_result = extract_transcript(video_id)
         if not transcript_result["success"]:
+            app.logger.warning(
+                "Transcript extraction failed for video %s: %s",
+                video_id,
+                transcript_result.get("error", "unknown error")
+            )
             return jsonify({
                 "success": False,
                 "error": transcript_result.get("error", "Failed to extract transcript.")
-            }), 400
+            }), 503
 
         video_title = transcript_result["title"]
         transcript_text = transcript_result["transcript_text"]
