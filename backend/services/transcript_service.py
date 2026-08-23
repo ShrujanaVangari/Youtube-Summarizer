@@ -9,6 +9,19 @@ import json
 import requests
 from youtube_transcript_api import YouTubeTranscriptApi
 
+
+def _caption_error(error):
+    error_name = type(error).__name__
+    blocked_errors = {'IpBlocked', 'RequestBlocked', 'YouTubeRequestFailed'}
+
+    if error_name in blocked_errors:
+        return (
+            "YouTube is blocking caption requests from this server. "
+            "Please try again later or configure a transcript proxy."
+        )
+
+    return "Unable to fetch captions from YouTube right now. Please check the URL and try again."
+
 def get_video_title(video_id):
     """
     Fetches public video title via YouTube oEmbed API without requiring API keys.
@@ -71,6 +84,12 @@ def extract_transcript(video_id):
             # Compatibility with youtube-transcript-api versions before 1.0.
             raw_items = YouTubeTranscriptApi.get_transcript(video_id)
 
+        if raw_items is None:
+            return {
+                "success": False,
+                "error": "This video does not have any captions or subtitles enabled."
+            }
+
         # Extract clean text from fetched items
         fragments = []
         for item in raw_items:
@@ -100,5 +119,5 @@ def extract_transcript(video_id):
         print(f"[Transcript Error] {type(e).__name__}: {e}")
         return {
             "success": False,
-            "error": "Unable to fetch captions from YouTube right now. Please check the URL and try again."
+            "error": _caption_error(e)
         }
