@@ -47,6 +47,7 @@ def extract_transcript(video_id):
 
     try:
         raw_items = None
+        last_fetch_error = None
 
         # youtube-transcript-api 1.x requires an instance and returns transcript
         # snippets with a text attribute. Select a non-English track when needed.
@@ -69,15 +70,20 @@ def extract_transcript(video_id):
                 if transcript is not None:
                     raw_items = transcript.fetch()
             except Exception as list_error:
+                last_fetch_error = list_error
                 print(f"[Transcript List Error] {type(list_error).__name__}: {list_error}")
 
         if raw_items is None and hasattr(transcript_api, 'fetch'):
             try:
                 raw_items = transcript_api.fetch(
                     video_id,
-                    languages=['en', 'en-US', 'en-GB']
+                    languages=[
+                        'en', 'en-US', 'en-GB', 'hi', 'te', 'ta', 'kn',
+                        'ml', 'bn', 'es', 'fr', 'de', 'pt', 'ja'
+                    ]
                 )
             except Exception as fetch_error:
+                last_fetch_error = fetch_error
                 print(f"[Transcript Fetch Error] {type(fetch_error).__name__}: {fetch_error}")
 
         if raw_items is None and hasattr(YouTubeTranscriptApi, 'get_transcript'):
@@ -85,6 +91,8 @@ def extract_transcript(video_id):
             raw_items = YouTubeTranscriptApi.get_transcript(video_id)
 
         if raw_items is None:
+            if last_fetch_error is not None:
+                raise last_fetch_error
             return {
                 "success": False,
                 "error": "This video does not have any captions or subtitles enabled."
