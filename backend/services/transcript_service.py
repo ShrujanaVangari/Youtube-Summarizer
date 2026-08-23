@@ -32,34 +32,26 @@ def extract_transcript(video_id):
     title = get_video_title(video_id)
 
     try:
-        raw_items = []
+        raw_items = None
 
-        # Attempt 1: Fetch via list() to inspect available language tracks
-        try:
-            if hasattr(YouTubeTranscriptApi, 'list') or hasattr(YouTubeTranscriptApi(), 'list'):
-                ytt = YouTubeTranscriptApi() if hasattr(YouTubeTranscriptApi, 'list') else YouTubeTranscriptApi
-                transcript_list = ytt.list(video_id) if hasattr(ytt, 'list') else ytt.list_transcripts(video_id)
-                
-                # Check for English or fallback to first available language track
-                try:
-                    t = transcript_list.find_transcript(['en', 'en-US', 'en-GB'])
-                except Exception:
-                    # Pick the first available transcript (e.g. te, hi, es, fr)
-                    t = next(iter(transcript_list))
-                    
-                raw_items = t.fetch()
-        except Exception as e1:
-            print(f"[Transcript Fallback 1]: {e1}")
-
-        # Attempt 2: Fallback to direct fetch/get_transcript
-        if not raw_items:
+        # youtube-transcript-api 1.x requires an instance and returns transcript
+        # snippets with a text attribute. Select a non-English track when needed.
+        transcript_api = YouTubeTranscriptApi()
+        if hasattr(transcript_api, 'list'):
+            transcript_list = transcript_api.list(video_id)
             try:
-                if hasattr(YouTubeTranscriptApi, 'fetch'):
-                    raw_items = YouTubeTranscriptApi().fetch(video_id)
-                elif hasattr(YouTubeTranscriptApi, 'get_transcript'):
-                    raw_items = YouTubeTranscriptApi.get_transcript(video_id)
-            except Exception as e2:
-                print(f"[Transcript Fallback 2]: {e2}")
+                transcript = transcript_list.find_transcript(['en', 'en-US', 'en-GB'])
+            except Exception:
+                transcript = next(iter(transcript_list), None)
+
+            if transcript is not None:
+                raw_items = transcript.fetch()
+        elif hasattr(YouTubeTranscriptApi, 'get_transcript'):
+            # Compatibility with youtube-transcript-api versions before 1.0.
+            raw_items = YouTubeTranscriptApi.get_transcript(video_id)
+
+        if raw_items is None and hasattr(transcript_api, 'fetch'):
+            raw_items = transcript_api.fetch(video_id, languages=['en', 'en-US', 'en-GB'])
 
         # Extract clean text from fetched items
         fragments = []
@@ -90,5 +82,5 @@ def extract_transcript(video_id):
         print(f"[Transcript Error] {str(e)}")
         return {
             "success": False,
-            "error": "No subtitles/transcripts found for this YouTube video."
+            "error": "Unable to fetch captions from YouTube right now. Please check the URL and try again."
         }
