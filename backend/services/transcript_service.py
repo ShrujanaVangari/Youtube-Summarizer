@@ -16,20 +16,73 @@ import json
 import requests
 from youtube_transcript_api import YouTubeTranscriptApi
 
+try:
+    from supadata import Supadata, SupadataError
+    _SUPADATA_SDK = True
+except ImportError:
+    _SUPADATA_SDK = False
+
+
+import time
 
 # ---------------------------------------------------------------------------
-# Config
+# Invidious instance discovery (official live list, cached 1 hour)
 # ---------------------------------------------------------------------------
 
-INVIDIOUS_INSTANCES = [
+_INVIDIOUS_CACHE: list = []
+_INVIDIOUS_CACHE_TS: float = 0
+_INVIDIOUS_CACHE_TTL = 3600  # seconds
+
+# Fallback list used when the discovery API is unreachable
+_INVIDIOUS_FALLBACK = [
     "https://inv.nadeko.net",
     "https://invidious.protokolla.fi",
-    "https://invidious.perennialte.ch",
     "https://invidious.darkness.services",
-    "https://yt.dragontar.net",
     "https://invidious.reallyaweso.me",
     "https://invidious.privacyredirect.com",
+    "https://invidious.perennialte.ch",
+    "https://invidious.slipfox.xyz",
+    "https://yt.dragontar.net",
 ]
+
+
+def _get_invidious_instances() -> list:
+    """Return a shuffled list of live Invidious instances, cached for 1 hour."""
+    global _INVIDIOUS_CACHE, _INVIDIOUS_CACHE_TS
+    now = time.time()
+    if _INVIDIOUS_CACHE and now - _INVIDIOUS_CACHE_TS < _INVIDIOUS_CACHE_TTL:
+        return list(_INVIDIOUS_CACHE)
+
+    try:
+        # Official Invidious instance API: returns JSON array of [uri, metadata] pairs
+        r = requests.get(
+            "https://api.invidious.io/instances.json?sort_by=health",
+            timeout=8
+        )
+        if r.status_code == 200:
+            data = r.json()
+            # Filter: API-enabled, HTTPS, not onion, health >= 0.8
+            instances = [
+                entry[0]
+                for entry in data
+                if isinstance(entry, list)
+                and len(entry) >= 2
+                and entry[1].get("api") is True
+                and entry[1].get("uri", "").startswith("https://")
+                and ".onion" not in entry[1].get("uri", "")
+                and entry[1].get("monitor", {}).get("uptime", 0) >= 80
+            ]
+            if instances:
+                _INVIDIOUS_CACHE = instances[:20]  # keep top 20
+                _INVIDIOUS_CACHE_TS = now
+                print(f"[Invidious] Discovered {len(_INVIDIOUS_CACHE)} live instances")
+                return list(_INVIDIOUS_CACHE)
+    except Exception as e:
+        print(f"[Invidious] Instance discovery failed: {e}")
+
+    # Use fallback list
+    print("[Invidious] Using fallback instance list")
+    return list(_INVIDIOUS_FALLBACK)
 
 
 # ---------------------------------------------------------------------------
@@ -153,29 +206,31 @@ def _fetch_via_supadata(video_id):
     if not api_key:
         return None, "SUPADATA_API_KEY not configured"
 
+    if not _SUPADATA_SDK:
+        return None, "supadata package not installed (add to requirements.txt)"
+
     try:
-        url = "https://api.supadata.ai/v1/youtube/transcript"
-        params = {
-            "url": f"https://www.youtube.com/watch?v={video_id}",
-            "text": "true",
-        }
-        headers = {"x-api-key": api_key}
-        r = requests.get(url, params=params, headers=headers, timeout=20)
+        client = Supadata(api_key=api_key)
+        result = client.transcript(
+            url=f"https://www.youtube.com/watch?v={video_id}",
+            lang="en",
+            text=True,
+            mode="auto",
+        )
 
-        if r.status_code == 200:
-            data = r.json()
-            # Response: {"content": "full text...", "lang": "en", ...}
-            content = data.get("content", "")
-            if content:
-                print(f"[Supadata] OK — lang: {data.get('lang', '?')}")
-                return " ".join(content.split()), None
-            return None, "Supadata returned an empty transcript"
+        if hasattr(result, "content") and result.content:
+            text = " ".join(str(result.content).split())
+            print(f"[Supadata] OK — lang: {getattr(result, 'lang', '?')}")
+            return text, None
 
-        if r.status_code == 404:
+        return None, "Supadata returned an empty transcript"
+
+    except SupadataError as e:
+        msg = str(e).lower()
+        print(f"[Supadata] SupadataError: {e}")
+        if "not found" in msg or "no transcript" in msg or "caption" in msg:
             return None, "This video does not have any captions or subtitles enabled."
-
-        print(f"[Supadata] Error {r.status_code}: {r.text[:200]}")
-        return None, f"Supadata API error ({r.status_code})"
+        return None, f"Supadata error: {e}"
 
     except Exception as e:
         print(f"[Supadata] Exception: {type(e).__name__}: {e}")
@@ -188,7 +243,8 @@ def _fetch_via_supadata(video_id):
 
 def _fetch_via_invidious(video_id):
     """Returns (transcript_text | None, error_message | None)."""
-    instances = random.sample(INVIDIOUS_INSTANCES, len(INVIDIOUS_INSTANCES))
+    instances = _get_invidious_instances()
+    instances = random.sample(instances, min(len(instances), 8))  # try up to 8
 
     for instance in instances:
         try:
