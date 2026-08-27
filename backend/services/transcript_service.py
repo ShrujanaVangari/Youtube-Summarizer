@@ -2,8 +2,10 @@
 YouTube Transcript Service
 Extracts video transcript text and metadata using youtube-transcript-api and YouTube oEmbed API.
 Supports multi-language auto-fallback (English, Telugu, Hindi, Spanish, etc.)
+Supports TRANSCRIPT_PROXY_URL env var to route requests through a proxy when the server IP is blocked.
 """
 
+import os
 import urllib.request
 import json
 import requests
@@ -15,9 +17,15 @@ def _caption_error(error):
     blocked_errors = {'IpBlocked', 'RequestBlocked', 'YouTubeRequestFailed'}
 
     if error_name in blocked_errors:
+        proxy_configured = bool(os.getenv('TRANSCRIPT_PROXY_URL'))
+        if proxy_configured:
+            return (
+                "YouTube is blocking caption requests even through the configured proxy. "
+                "Please try a different proxy or try again later."
+            )
         return (
             "YouTube is blocking caption requests from this server. "
-            "Please try again later or configure a transcript proxy."
+            "Set the TRANSCRIPT_PROXY_URL environment variable to route requests through a proxy."
         )
 
     return "Unable to fetch captions from YouTube right now. Please check the URL and try again."
@@ -57,6 +65,16 @@ def extract_transcript(video_id):
                           'AppleWebKit/537.36 Chrome/131.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9'
         })
+
+        # Route through a proxy if configured — required on servers with blocked IPs (e.g. Render)
+        proxy_url = os.getenv('TRANSCRIPT_PROXY_URL')
+        if proxy_url:
+            http_client.proxies.update({
+                'http': proxy_url,
+                'https': proxy_url,
+            })
+            print(f"[Transcript] Using proxy: {proxy_url.split('@')[-1]}")
+
         transcript_api = YouTubeTranscriptApi(http_client=http_client)
 
         if hasattr(transcript_api, 'list'):

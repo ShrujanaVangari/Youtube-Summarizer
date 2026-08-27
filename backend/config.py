@@ -13,3 +13,7 @@ class Config:
     # Third-Party API & Database Configurations
     GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
     DATABASE_URL = os.getenv('DATABASE_URL', '')
+
+    # Optional: proxy URL to bypass YouTube IP blocks on cloud servers (e.g. Render)
+    # Format: https://user:password@host:port  or  socks5://user:password@host:port
+    TRANSCRIPT_PROXY_URL = os.getenv('TRANSCRIPT_PROXY_URL', '')
