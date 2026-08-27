@@ -13,3 +13,5 @@ services:
         sync: false
       - key: TRANSCRIPT_PROXY_URLS
         sync: false
+      - key: SUPADATA_API_KEY
+        sync: false
