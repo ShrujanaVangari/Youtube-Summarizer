@@ -3,11 +3,13 @@ services:
     name: youtube-ai-summarizer-api
     runtime: python
     buildCommand: pip install -r backend/requirements.txt
-    startCommand: python backend/app.py
+    startCommand: gunicorn --chdir backend app:create_app --bind 0.0.0.0:$PORT
     envVars:
       - key: FLASK_ENV
         value: production
       - key: GEMINI_API_KEY
         sync: false
       - key: DATABASE_URL
+        sync: false
+      - key: TRANSCRIPT_PROXY_URLS
         sync: false
